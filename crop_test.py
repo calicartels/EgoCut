@@ -1,8 +1,10 @@
 """
-Test center crop on one video. Produces:
-  - cropped video (256x256)
-  - before.png (original 456x256 frame)
-  - after.png  (cropped 256x256 frame)
+Test center crop with top trim. Produces side-by-side comparisons.
+
+Tries 3 top-trim values so you can pick the best one:
+  - 0px  (current: 256x256, no top trim)
+  - 20px (256x236 crop, then resize to 256x256)
+  - 36px (256x220 crop, then resize to 256x256)
 
 Usage:
   python crop_test.py egocentric/val/factory001/factory_001_worker_001_0076.mp4
@@ -13,47 +15,50 @@ import subprocess
 import sys
 
 path = sys.argv[1]
-basename = os.path.splitext(os.path.basename(path))[0]
 out_dir = "crop_test"
 os.makedirs(out_dir, exist_ok=True)
 
-cropped_path = os.path.join(out_dir, f"{basename}_cropped.mp4")
-before_path = os.path.join(out_dir, "before.png")
-after_path = os.path.join(out_dir, "after.png")
+# Original is 456x256. Center crop width: (456-256)/2 = 100px each side.
+trims = [0, 20, 36]
+timestamp = "90"
 
-# Extract one frame from middle of original (at 90s)
+# Extract original frame
+before = os.path.join(out_dir, "before.png")
 subprocess.run(
-    ["ffmpeg", "-y", "-ss", "90", "-i", path,
-     "-frames:v", "1", before_path],
+    ["ffmpeg", "-y", "-ss", timestamp, "-i", path,
+     "-frames:v", "1", before],
     capture_output=True, check=True,
 )
-print(f"Before: {before_path}")
 
-# Center crop 456x256 → 256x256
-# crop=out_w:out_h:x:y — omitting x,y centers automatically
-subprocess.run(
-    ["ffmpeg", "-y", "-i", path,
-     "-vf", "crop=256:256",
-     "-c:v", "libx264", "-preset", "fast", "-crf", "23",
-     "-c:a", "copy",
-     cropped_path],
-    capture_output=True, check=True,
-)
-print(f"Cropped video: {cropped_path}")
+for trim in trims:
+    tag = f"trim{trim}"
+    frame_path = os.path.join(out_dir, f"after_{tag}.png")
 
-# Extract same frame from cropped video
-subprocess.run(
-    ["ffmpeg", "-y", "-ss", "90", "-i", cropped_path,
-     "-frames:v", "1", after_path],
-    capture_output=True, check=True,
-)
-print(f"After: {after_path}")
+    # Choice: crop then scale back to 256x256.
+    # crop=256:(256-trim):100:trim takes 256 wide centered, (256-trim) tall
+    # starting trim pixels from top. Then scale back to 256x256.
+    # The slight vertical stretch from scaling is negligible (<15%).
+    h = 256 - trim
+    vf = f"crop=256:{h}:100:{trim},scale=256:256"
 
-# Print dimensions for verification
-for label, p in [("Original", before_path), ("Cropped", after_path)]:
-    result = subprocess.run(
-        ["ffprobe", "-v", "quiet", "-show_entries", "stream=width,height",
-         "-of", "csv=p=0", p],
-        capture_output=True, text=True,
+    subprocess.run(
+        ["ffmpeg", "-y", "-ss", timestamp, "-i", path,
+         "-vf", vf, "-frames:v", "1", frame_path],
+        capture_output=True, check=True,
     )
-    print(f"  {label}: {result.stdout.strip()}")
+
+    # Side by side: before (456x256) | after (256x256)
+    # Resize before to same height for clean comparison
+    sidebyside = os.path.join(out_dir, f"compare_{tag}.png")
+    subprocess.run(
+        ["ffmpeg", "-y",
+         "-i", before, "-i", frame_path,
+         "-filter_complex",
+         "[0]scale=-1:256[a];[1]scale=-1:256[b];[a][b]hstack[out]",
+         "-map", "[out]", sidebyside],
+        capture_output=True, check=True,
+    )
+    print(f"trim={trim}px: {sidebyside}")
+
+print(f"\nOriginal frame: {before}")
+print("Compare the 3 side-by-side images and pick the best trim value.")
