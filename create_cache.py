@@ -129,11 +129,11 @@ def build_conversation(f001_file, f002_file):
     6. Gemini produces correct labels without correction
     """
 
-    f001_part = types.Part.from_uri(
-        file_uri=f001_file.uri, mime_type=f001_file.mime_type,
+    f001_part = types.Part(
+        file_data=types.FileData(file_uri=f001_file.uri, mime_type=f001_file.mime_type),
     )
-    f002_part = types.Part.from_uri(
-        file_uri=f002_file.uri, mime_type=f002_file.mime_type,
+    f002_part = types.Part(
+        file_data=types.FileData(file_uri=f002_file.uri, mime_type=f002_file.mime_type),
     )
 
     contents = [
@@ -142,7 +142,7 @@ def build_conversation(f001_file, f002_file):
             role="user",
             parts=[
                 f001_part,
-                types.Part.from_text(
+                types.Part(text=
                     "This is factory_001_worker_001_0076.mp4 (full 3-minute video). "
                     "The worker is performing circular ring installation into electronic "
                     "casings. They pick up a rectangular casing, retrieve a circular ring "
@@ -156,7 +156,7 @@ def build_conversation(f001_file, f002_file):
         # Turn 2: Model gives a too-loose first attempt
         types.Content(
             role="model",
-            parts=[types.Part.from_text(
+            parts=[types.Part(text=
                 "I have analyzed the video. Here are the Golden Standard segments I identified:\n\n"
                 + json.dumps([
                     {"start": "00:00", "end": "00:02", "label": "Golden Standard",
@@ -176,7 +176,7 @@ def build_conversation(f001_file, f002_file):
         # Turn 3: User corrects — points to 02:22-02:29 as master golden segment
         types.Content(
             role="user",
-            parts=[types.Part.from_text(
+            parts=[types.Part(text=
                 "That's wrong. You included 00:00-00:02 which has camera instability, "
                 "and 00:13-00:15 which has the white support beam occluding the view. "
                 "You also missed the best segments entirely.\n\n"
@@ -191,7 +191,7 @@ def build_conversation(f001_file, f002_file):
         # Turn 4: Model acknowledges correction and articulates hard-fail criteria
         types.Content(
             role="model",
-            parts=[types.Part.from_text(
+            parts=[types.Part(text=
                 "Understood. I see where my previous attempt failed. I was too loose with the "
                 "criteria. Looking at your corrections and re-watching the video, I now understand "
                 "three hard-fail rules:\n\n"
@@ -215,7 +215,7 @@ def build_conversation(f001_file, f002_file):
             role="user",
             parts=[
                 f002_part,
-                types.Part.from_text(
+                types.Part(text=
                     "Next video: factory_002_worker_001_0075.mp4\n\n"
                     "0:03 to 0:24 is the golden template for this task.\n\n"
                     "The worker performs a lamination/adhesion task for electronic panel "
@@ -231,7 +231,7 @@ def build_conversation(f001_file, f002_file):
         # Turn 6: Model produces correct factory002 labels (no correction needed)
         types.Content(
             role="model",
-            parts=[types.Part.from_text(json.dumps(FACTORY002_LABELS, indent=2))],
+            parts=[types.Part(text=json.dumps(FACTORY002_LABELS, indent=2))],
         ),
     ]
 
