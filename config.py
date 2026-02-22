@@ -9,7 +9,8 @@ CROPPED_DIR = "cropped"
 # Choice: gemini-2.5-pro for best video understanding accuracy.
 # Alternative: gemini-2.5-flash is 10x cheaper but less reliable on
 # fine-grained temporal boundary detection in 180s videos.
-GEMINI_MODEL = "gemini-2.5-pro"
+GEMINI_MODEL = "gemini-3-flash-preview"
+
 
 # ── Video preprocessing ──────────────────────────────────────────────
 # Choice: center-crop 456x256 → 256x256 with 20px top trim.
