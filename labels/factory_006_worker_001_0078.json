@@ -1,0 +1,63 @@
+[
+  {
+    "start_time": "00:00",
+    "end_time": "01:05",
+    "label": "not good for collecting",
+    "reason": "Extreme instability: worker is walking and looking at other stations; manipulation zone is not in view."
+  },
+  {
+    "segment_id": 1,
+    "start_time": "01:06",
+    "end_time": "01:10",
+    "label": "Golden Standard",
+    "description": "Primary Golden Sample: High-clarity cycle featuring precise vial placement, manual lever pull, and immediate inspection with centered framing."
+  },
+  {
+    "start_time": "01:11",
+    "end_time": "01:21",
+    "label": "not good for collecting",
+    "reason": "Occlusion: hand and arm block the camera view while reaching for a new tray."
+  },
+  {
+    "segment_id": 2,
+    "start_time": "01:22",
+    "end_time": "01:28",
+    "label": "Golden Standard",
+    "confidence_score": 0.93,
+    "description": "Clean bimanual repetition; optimal lighting on the vial's insertion point."
+  },
+  {
+    "start_time": "01:29",
+    "end_time": "01:43",
+    "label": "not good for collecting",
+    "reason": "Gaze shift: worker looks at the tray stack for an extended period, moving the press out of the central ROI."
+  },
+  {
+    "segment_id": 3,
+    "start_time": "01:44",
+    "end_time": "01:47",
+    "label": "Golden Standard",
+    "confidence_score": 0.90,
+    "description": "Steady egocentric perspective during the lever-press execution; zero peripheral distractions."
+  },
+  {
+    "start_time": "01:48",
+    "end_time": "02:03",
+    "label": "not good for collecting",
+    "reason": "Incomplete cycle: worker pauses to adjust the pink protective cloth under the press."
+  },
+  {
+    "segment_id": 4,
+    "start_time": "02:04",
+    "end_time": "02:11",
+    "label": "Golden Standard",
+    "confidence_score": 0.95,
+    "description": "Master repetition: highly stable framing and clear view of the component alignment before pressing."
+  },
+  {
+    "start_time": "02:12",
+    "end_time": "02:59",
+    "label": "not good for collecting",
+    "reason": "Camera occlusion and significant head movement as the worker prepares the next bulk batch."
+  }
+]

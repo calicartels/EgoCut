@@ -1,0 +1,60 @@
+[
+  {
+    "start_time": "00:00",
+    "end_time": "00:02",
+    "label": "not good for collecting",
+    "reason": "Segment starts mid-action; camera moves away from primary workspace."
+  },
+  {
+    "segment_id": 1,
+    "start_time": "00:03",
+    "end_time": "00:24",
+    "label": "Golden Standard",
+    "description": "Primary Golden Template: contains two full lamination cycles with centered framing, steady rolling motion, and clear bimanual coordination."
+  },
+  {
+    "start_time": "00:25",
+    "end_time": "00:26",
+    "label": "not good for collecting",
+    "reason": "Transition period; camera gaze shifts briefly."
+  },
+  {
+    "segment_id": 2,
+    "start_time": "00:27",
+    "end_time": "00:46",
+    "label": "Golden Standard",
+    "description": "Two high-speed repetitions; consistent lighting and zero occlusion of the wiring contact points."
+  },
+  {
+    "start_time": "00:47",
+    "end_time": "00:48",
+    "label": "not good for collecting",
+    "reason": "Gaze shift away from task."
+  },
+  {
+    "segment_id": 3,
+    "start_time": "00:49",
+    "end_time": "01:06",
+    "label": "Golden Standard",
+    "description": "Single long cycle with focus on panel alignment and detailed roller pressure application."
+  },
+  {
+    "start_time": "01:07",
+    "end_time": "01:10",
+    "label": "not good for collecting",
+    "reason": "Camera blur and significant head movement."
+  },
+  {
+    "segment_id": 4,
+    "start_time": "01:11",
+    "end_time": "01:29",
+    "label": "Golden Standard",
+    "description": "Final clean repetition; matches the 'Golden Template' trajectory for robotic training."
+  },
+  {
+    "start_time": "01:30",
+    "end_time": "02:09",
+    "label": "not good for collecting",
+    "reason": "Out-of-distribution task: worker interacts with a pink bottle, looks at instructions, and eventually moves camera off-station."
+  }
+]
