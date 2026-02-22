@@ -19,43 +19,47 @@ import sys
 
 
 def parse_time(t):
-    """Convert "MM:SS" to seconds."""
     parts = t.split(":")
     return int(parts[0]) * 60 + int(parts[1])
 
 
-def build_drawtext_filters(segments):
-    """Build ffmpeg drawtext filter chain from label segments."""
-    filters = []
+def build_filter(segments):
+    """Build ffmpeg filter chain. Uses drawbox for color bar + drawtext for label."""
+    parts = []
     for seg in segments:
         start = parse_time(seg["start_time"])
         end = parse_time(seg["end_time"])
         is_golden = seg.get("label") == "Golden Standard"
 
         color = "0x00AA00" if is_golden else "0xAA0000"
-        text = "GOLDEN" if is_golden else "NOT GOOD"
-        seg_id = seg.get("segment_id", "")
-        if seg_id:
-            text = f"GOLDEN #{seg_id}"
+        seg_id = seg.get("segment_id")
+
+        # Choice: avoid '#' in drawtext — ffmpeg interprets it as textfile.
+        # Use "GOLDEN 1" instead of "GOLDEN #1".
+        if is_golden and seg_id:
+            text = f"GOLDEN {seg_id}"
+        elif is_golden:
+            text = "GOLDEN"
+        else:
+            text = "NOT GOOD"
+
+        ts = f"{seg['start_time']}-{seg['end_time']}"
+        enable = f"between(t\\,{start}\\,{end})"
 
         # Background bar
-        filters.append(
-            f"drawbox=x=0:y=0:w=iw:h=32:color={color}@0.7:t=fill"
-            f":enable='between(t,{start},{end})'"
+        parts.append(
+            f"drawbox=x=0:y=0:w=iw:h=32:color={color}@0.7:t=fill:enable='{enable}'"
         )
-        # Text label
-        filters.append(
-            f"drawtext=text='{text}':x=10:y=6:fontsize=18"
-            f":fontcolor=white:enable='between(t,{start},{end})'"
+        # Label text
+        parts.append(
+            f"drawtext=text='{text}':x=10:y=6:fontsize=18:fontcolor=white:enable='{enable}'"
         )
-        # Timestamp display
-        filters.append(
-            f"drawtext=text='{seg['start_time']}-{seg['end_time']}'"
-            f":x=w-120:y=6:fontsize=18"
-            f":fontcolor=white:enable='between(t,{start},{end})'"
+        # Timestamp range
+        parts.append(
+            f"drawtext=text='{ts}':x=w-120:y=6:fontsize=18:fontcolor=white:enable='{enable}'"
         )
 
-    return ",".join(filters)
+    return ",".join(parts)
 
 
 def verify(label_path, video_path):
@@ -67,14 +71,13 @@ def verify(label_path, video_path):
     os.makedirs(out_dir, exist_ok=True)
     out_path = os.path.join(out_dir, f"{basename}_overlay.mp4")
 
-    vf = build_drawtext_filters(segments)
+    vf = build_filter(segments)
 
     subprocess.run(
         ["ffmpeg", "-y", "-i", video_path,
          "-vf", vf,
          "-c:v", "libx264", "-preset", "fast", "-crf", "23",
-         "-c:a", "copy",
-         out_path],
+         "-an", out_path],
         check=True,
     )
 
