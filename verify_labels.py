@@ -43,7 +43,7 @@ def build_filter(segments):
         else:
             text = "NOT GOOD"
 
-        ts = f"{seg['start_time']}-{seg['end_time']}"
+        ts = f"{seg['start_time']}-{seg['end_time']}".replace(":", r"\:")
         enable = f"between(t\\,{start}\\,{end})"
 
         # Background bar
