@@ -24,11 +24,11 @@ The approach: use Meta's V-JEPA 2 (a self-supervised video encoder trained on 1M
 
 Cheap spatiotemporal filtering for egocentric factory video — so Gemini only annotates what matters.
 
-<video src="assets/factory_001_worker_002_0000_overlay.mp4" width="720" autoplay loop muted></video>
+![factory001 — ring insertion (golden=green, rejected=red)](assets/factory_001_worker_002_0000_overlay.gif)
 
 *factory001 — ring insertion (golden=green, rejected=red)*
 
-<video src="assets/factory_008_worker_001_0003_overlay.mp4" width="720" autoplay loop muted></video>
+![factory008 — battery insertion](assets/factory_008_worker_001_0003_overlay.gif)
 
 *factory008 — battery insertion*
 
