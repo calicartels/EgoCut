@@ -142,10 +142,11 @@ def extract_features(model, video_tensor):
     Alternative: store full patch features for maximum information retention,
     but requires ~13GB disk and much more probe training memory.
     """
-    video_tensor = video_tensor.cuda().half()
+    video_tensor = video_tensor.cuda()
 
-    # Forward through frozen encoder
-    features = model(video_tensor)  # (1, n_patches, embed_dim)
+    # Forward through frozen encoder with autocast for memory efficiency
+    with torch.amp.autocast("cuda"):
+        features = model(video_tensor)  # (1, n_patches, embed_dim)
 
     # Reshape: (1, T*H*W, D) → (1, T, H*W, D)
     T = VJEPA2_T_TOKENS
