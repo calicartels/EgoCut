@@ -19,7 +19,7 @@ This matters because if you want to train a robot to do the same task, you need 
 Previous attempts failed. Single-frame classification didn't work because static hand poses are ambiguous — "hand reaching for headgear adjustment" looks identical to "hand reaching for device casing" in a single frame. A second attempt using VJEPA2 with cosine similarity sliding windows also failed: it detected anomalies initially but then normalized to them. After 2 seconds of "not working," the sliding window treated "not working" as the new baseline and stopped flagging it. The fix is discriminative classification (frozen VJEPA2 backbone + learned probe), not similarity-based detection.
 
 The approach: use Meta's V-JEPA 2 (a self-supervised video encoder trained on 1M+ hours of video) as a frozen backbone. Train a tiny 578K-parameter classifier on top to flag which 8-second windows are "Golden Standard" (perfect camera angle, full work cycle, zero occlusion, steady gaze) and which aren't worth sending to Gemini at all. The encoder stays frozen — I only train the lightweight probe that sits on top. The encoder never sees our data during pretraining — it just learns general video understanding. We teach it what "golden" means with a few hundred labeled clips.
-<b> Again, this isnt to replace Gemini itself, its just a cheap way to filter out noise before it even reaches Gemini.</b>
+Again, this isnt to replace Gemini itself, its just a cheap way to filter out noise before it even reaches Gemini.
 ---
 
 Cheap spatiotemporal filtering for egocentric factory video — so Gemini only annotates what matters.
