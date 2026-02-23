@@ -28,11 +28,11 @@ Cheap spatiotemporal filtering for egocentric factory video — so Gemini only a
 <tr>
 <td align="center">
 <video src="assets/factory_001_worker_002_0000_overlay.mp4" width="360" autoplay loop muted></video>
-<br><em>factory001 — ring insertion (golden=green, rejected=red)</em>
+<br><em>factory -1 — ring insertion (golden=green, rejected=red)</em>
 </td>
 <td align="center">
 <video src="assets/factory_008_worker_001_0003_overlay.mp4" width="360" autoplay loop muted></video>
-<br><em>factory008 — battery insertion</em>
+<br><em>factory - 8 — battery insertion</em>
 </td>
 </tr>
 </table>
