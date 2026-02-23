@@ -1,0 +1,110 @@
+[
+  {
+    "start_time": "00:00",
+    "end_time": "00:04",
+    "label": "not good for collecting"
+  },
+  {
+    "segment_id": 1,
+    "start_time": "00:05",
+    "end_time": "00:08",
+    "label": "Golden Standard",
+    "description": "Single perfect repetition; centered framing and clear thumb-press."
+  },
+  {
+    "start_time": "00:09",
+    "end_time": "00:15",
+    "label": "not good for collecting"
+  },
+  {
+    "segment_id": 2,
+    "start_time": "00:16",
+    "end_time": "00:19",
+    "label": "Golden Standard",
+    "description": "Unobstructed view of assembly; zero occlusion from assembly line structure."
+  },
+  {
+    "start_time": "00:20",
+    "end_time": "00:25",
+    "label": "not good for collecting"
+  },
+  {
+    "segment_id": 3,
+    "start_time": "00:26",
+    "end_time": "00:28",
+    "label": "Golden Standard",
+    "description": "High-speed repetition with focused gaze and stable camera."
+  },
+  {
+    "start_time": "00:29",
+    "end_time": "00:30",
+    "label": "not good for collecting"
+  },
+  {
+    "segment_id": 4,
+    "start_time": "00:31",
+    "end_time": "00:34",
+    "label": "Golden Standard",
+    "description": "Full acquisition-to-release cycle within the central work zone."
+  },
+  {
+    "start_time": "00:35",
+    "end_time": "00:49",
+    "label": "not good for collecting"
+  },
+  {
+    "segment_id": 5,
+    "start_time": "00:50",
+    "end_time": "00:53",
+    "label": "Golden Standard",
+    "description": "Clear component contrast; steady egocentric perspective."
+  },
+  {
+    "start_time": "00:54",
+    "end_time": "01:41",
+    "label": "not good for collecting"
+  },
+  {
+    "segment_id": 6,
+    "start_time": "01:42",
+    "end_time": "01:45",
+    "label": "Golden Standard",
+    "description": "Optimal lighting on the insertion slot; distinct tactile press visible."
+  },
+  {
+    "segment_id": 7,
+    "start_time": "01:46",
+    "end_time": "01:49",
+    "label": "Golden Standard",
+    "description": "Consistent repetition; no head movement or peripheral distractions."
+  },
+  {
+    "start_time": "01:50",
+    "end_time": "02:03",
+    "label": "not good for collecting"
+  },
+  {
+    "segment_id": 8,
+    "start_time": "02:04",
+    "end_time": "02:07",
+    "label": "Golden Standard",
+    "description": "Symmetrical hand positioning; perfectly centered manipulation."
+  },
+  {
+    "start_time": "02:08",
+    "end_time": "02:21",
+    "label": "not good for collecting"
+  },
+  {
+    "segment_id": 9,
+    "start_time": "02:22",
+    "end_time": "02:29",
+    "label": "Golden Standard",
+    "description": "Master Golden Segment; two full, uninterrupted textbook cycles."
+  },
+  {
+    "start_time": "02:30",
+    "end_time": "02:59",
+    "label": "not good for collecting"
+  }
+]

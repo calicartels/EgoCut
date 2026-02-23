@@ -1,0 +1,63 @@
+[
+  {
+    "start_time": "00:00",
+    "end_time": "00:01",
+    "label": "not good for collecting",
+    "reason": "Segment begins mid-action; framing is unstable as the worker settles into position."
+  },
+  {
+    "segment_id": 1,
+    "start_time": "00:02",
+    "end_time": "00:13",
+    "label": "Golden Standard",
+    "description": "Primary Golden Sample: High-clarity cycle featuring motor acquisition, precise wire threading through the housing slot, and final seating with zero occlusion."
+  },
+  {
+    "start_time": "00:14",
+    "end_time": "00:15",
+    "label": "not good for collecting",
+    "reason": "Transition: worker reaches toward the left, causing the hands to leave the central ROI."
+  },
+  {
+    "segment_id": 2,
+    "start_time": "00:16",
+    "end_time": "00:27",
+    "label": "Golden Standard",
+    "confidence_score": 0.92,
+    "description": "Clean bimanual repetition; excellent visual focus on the motor alignment and wire tensioning."
+  },
+  {
+    "start_time": "00:28",
+    "end_time": "00:53",
+    "label": "not good for collecting",
+    "reason": "Massive occlusion: worker reaches deep into a cardboard box on the floor to retrieve bulk motors; primary task zone is out of view."
+  },
+  {
+    "segment_id": 3,
+    "start_time": "00:54",
+    "end_time": "01:03",
+    "label": "Golden Standard",
+    "confidence_score": 0.89,
+    "description": "Uninterrupted cycle with steady gaze; clear contrast between the silver motor body and the teal housing."
+  },
+  {
+    "start_time": "01:04",
+    "end_time": "01:18",
+    "label": "not good for collecting",
+    "reason": "Incomplete cycle: worker pauses several times to untangle wires from the bulk pile."
+  },
+  {
+    "segment_id": 4,
+    "start_time": "01:19",
+    "end_time": "01:32",
+    "label": "Golden Standard",
+    "confidence_score": 0.94,
+    "description": "Master repetition: highly stable egocentric perspective and precise finger manipulation during the wire-threading phase."
+  },
+  {
+    "start_time": "01:33",
+    "end_time": "02:59",
+    "label": "not good for collecting",
+    "reason": "Remaining duration contains frequent occlusions by the worker's own arms and multiple gaze shifts away from the assembly area."
+  }
+]
