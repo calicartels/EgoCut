@@ -1,15 +1,3 @@
-"""
-Label one video using the Gemini context cache.
-
-Crops the video (256x256 with 20px top trim), uploads it, and sends
-to Gemini with the cached calibration context.
-
-Usage:
-  python label_cached.py egocentric/val/factory001/factory_001_worker_001_0076.mp4
-
-Requires: cache_name.txt (created by create_cache.py)
-"""
-
 import json
 import os
 import re
@@ -110,19 +98,15 @@ def label_video(path):
     factory_key, video_id = parse_video_path(path)
     duration_s = get_duration(path)
 
-    # Read cache name
     with open("cache_name.txt") as f:
         cache_name = f.read().strip()
 
-    # Crop
     cropped = crop_video(path, factory_key, video_id)
 
-    # Upload
     client = genai.Client()
     print(f"Uploading {cropped}...")
     video_file = upload_and_wait(client, cropped)
 
-    # Label
     prompt = build_prompt(factory_key, video_id, duration_s)
     print(f"Labeling with cache {cache_name}...")
 
@@ -134,10 +118,8 @@ def label_video(path):
         ),
     )
 
-    # Clean up remote file
     client.files.delete(name=video_file.name)
 
-    # Parse and save
     label = extract_json(response.text)
     label = validate(label, duration_s)
 

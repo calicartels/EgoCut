@@ -1,17 +1,3 @@
-"""
-Convert per-second labels to clip-level binary labels.
-
-Each clip: 16 frames at 2fps = 8 seconds of video.
-Label: 1 (golden) if >50% of the clip's seconds are Golden Standard, else 0.
-
-Usage:
-  python make_clips.py                   # non-overlapping (stride=8s)
-  python make_clips.py --overlap 0.5     # 50% overlap (stride=4s)
-
-Reads: egocentric/{train,val,test}/ and labels/
-Writes: clips/{train,val,test}_manifest.json
-"""
-
 import argparse
 import glob
 import json
@@ -122,12 +108,9 @@ parser.add_argument("--overlap", type=float, default=0.0,
                     help="Overlap fraction (0.0 = no overlap, 0.5 = 50%% overlap)")
 args = parser.parse_args()
 
-# Choice: 50% overlap for train (doubles data), no overlap for val/test (no data leakage).
-# Alternative: overlap everywhere (inflates val/test metrics with correlated clips).
 stride_s = int(CLIP_DURATION_S * (1 - args.overlap))
 stride_s = max(1, stride_s)
 
 for split in ["train", "val", "test"]:
-    # Only use overlap for training data
     s = stride_s if split == "train" else int(CLIP_DURATION_S)
     process_split(split, s)

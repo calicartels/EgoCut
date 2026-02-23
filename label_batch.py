@@ -1,17 +1,3 @@
-"""
-Label all unlabeled videos using the Gemini context cache.
-
-Scans egocentric/{train,val,test}/ for videos, skips any that already
-have a label file, and labels the rest via the cached calibration context.
-
-Usage:
-  python label_batch.py              # label everything unlabeled
-  python label_batch.py --dry-run    # show what would be labeled
-  python label_batch.py --factory factory008  # label one factory only
-
-Requires: cache_name.txt (created by create_cache.py)
-"""
-
 import glob
 import json
 import os
@@ -106,7 +92,6 @@ def validate(label, duration_s):
 
 
 def find_all_videos():
-    """Find all mp4 files in egocentric/{train,val,test}/."""
     videos = []
     for split in ["train", "val", "test"]:
         pattern = os.path.join("egocentric", split, "*", "*.mp4")
@@ -119,11 +104,8 @@ def label_path_for(factory_key, video_id):
 
 
 def is_labeled(factory_key, video_id):
-    """Check if this video already has a label file anywhere in labels/."""
-    # Check in factory subfolder
     if os.path.exists(label_path_for(factory_key, video_id)):
         return True
-    # Check flat in labels/ (calibration labels stored without subfolder)
     if os.path.exists(os.path.join(LABELS_DIR, f"{video_id}.json")):
         return True
     return False
@@ -133,13 +115,9 @@ def label_one(client, cache_name, video_path):
     factory_key, video_id = parse_video_path(video_path)
     duration_s = get_duration(video_path)
 
-    # Crop
     cropped = crop_video(video_path, factory_key, video_id)
-
-    # Upload
     video_file = upload_and_wait(client, cropped)
 
-    # Label
     prompt = build_prompt(factory_key, video_id, duration_s)
     response = client.models.generate_content(
         model=GEMINI_MODEL,
@@ -149,14 +127,11 @@ def label_one(client, cache_name, video_path):
         ),
     )
 
-    # Clean up remote file
     client.files.delete(name=video_file.name)
 
-    # Parse
     label = extract_json(response.text)
     golden_s, n_golden, coverage = validate(label, duration_s)
 
-    # Save
     out_dir = os.path.join(LABELS_DIR, factory_key)
     os.makedirs(out_dir, exist_ok=True)
     out_path = label_path_for(factory_key, video_id)
@@ -166,14 +141,12 @@ def label_one(client, cache_name, video_path):
     return golden_s, n_golden, coverage
 
 
-# Parse args
 dry_run = "--dry-run" in sys.argv
 factory_filter = None
 for i, arg in enumerate(sys.argv):
     if arg == "--factory" and i + 1 < len(sys.argv):
         factory_filter = sys.argv[i + 1]
 
-# Find unlabeled videos
 all_videos = find_all_videos()
 to_label = []
 for v in all_videos:
@@ -198,19 +171,14 @@ if not to_label:
     print("Nothing to label")
     sys.exit(0)
 
-# Load cache
 with open("cache_name.txt") as f:
     cache_name = f.read().strip()
 
 client = genai.Client()
 
-# Verify cache is still alive
 cache = client.caches.get(name=cache_name)
 print(f"Cache: {cache.name} (expires {cache.expire_time})")
 
-# Label videos
-# Choice: 5s delay between requests to avoid rate limits.
-# Alternative: no delay (faster but risks 429s on free tier).
 DELAY_S = 5
 failed = []
 
@@ -224,14 +192,12 @@ for i, video_path in enumerate(to_label):
     except Exception as e:
         print(f"FAILED: {e}")
         failed.append((video_path, str(e)))
-        # Longer backoff on failure
         time.sleep(15)
         continue
 
     if i < len(to_label) - 1:
         time.sleep(DELAY_S)
 
-# Summary
 labeled = len(to_label) - len(failed)
 print(f"\nDone: {labeled}/{len(to_label)} labeled")
 if failed:

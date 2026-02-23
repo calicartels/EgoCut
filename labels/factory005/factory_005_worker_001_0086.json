@@ -1,0 +1,57 @@
+[
+  {
+    "start_time": "00:00",
+    "end_time": "01:08",
+    "label": "not good for collecting",
+    "reason": "Frequent occlusion as worker reaches into bulk sacks; camera framing is inconsistent during material prep."
+  },
+  {
+    "segment_id": 1,
+    "start_time": "01:09",
+    "end_time": "01:27",
+    "label": "Golden Standard",
+    "description": "Primary Golden Sample: Textbook assembly cycle featuring box formation, precise cable insertion, manual placement, and final tab-sealing with steady gaze."
+  },
+  {
+    "start_time": "01:28",
+    "end_time": "01:41",
+    "label": "not good for collecting",
+    "reason": "Worker looks away to interact with a colleague; hands move out of the central work zone."
+  },
+  {
+    "segment_id": 2,
+    "start_time": "01:42",
+    "end_time": "01:53",
+    "label": "Golden Standard",
+    "confidence_score": 0.92,
+    "description": "Clean bimanual repetition; high visual contrast between the orange product and white box interior."
+  },
+  {
+    "start_time": "01:54",
+    "end_time": "02:02",
+    "label": "not good for collecting",
+    "reason": "Gaze shift: worker spends time inspecting the stack rather than the manipulation zone."
+  },
+  {
+    "segment_id": 3,
+    "start_time": "02:03",
+    "end_time": "02:12",
+    "label": "Golden Standard",
+    "confidence_score": 0.89,
+    "description": "Uninterrupted 'Pick-and-Pack' cycle with optimal lighting on the manual-insertion phase."
+  },
+  {
+    "start_time": "02:13",
+    "end_time": "02:39",
+    "label": "not good for collecting",
+    "reason": "Occlusion: worker's torso and arms block the camera view while reaching for bulk supplies on the floor."
+  },
+  {
+    "segment_id": 4,
+    "start_time": "02:40",
+    "end_time": "02:59",
+    "label": "Golden Standard",
+    "confidence_score": 0.94,
+    "description": "Master repetition: highly stable egocentric perspective during the final box-stacking sequence."
+  }
+]

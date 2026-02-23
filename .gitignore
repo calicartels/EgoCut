@@ -208,3 +208,20 @@ __marimo__/
 
 .env
 .envrc
+
+# ── EgoCut project-specific ──────────────────────────────────────────
+# Large video / data directories
+egocentric/
+cropped/
+gemini_review/
+
+# Generated outputs
+embeddings/
+clips/
+model/
+predictions/
+verify_output/
+
+# Gemini cache
+cache_name.txt
+cache_assets/

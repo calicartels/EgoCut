@@ -1,17 +1,3 @@
-"""
-Create explicit Gemini context cache with calibration conversation.
-
-Uploads the full cropped factory001 and factory002 videos (same ones
-used in the original Gemini chat). The conversation references golden
-timestamps within those videos, matching the original calibration flow.
-
-Factory003 deliberately excluded — it's our validation target.
-
-Usage:
-  export GEMINI_API_KEY=your_key
-  python create_cache.py
-"""
-
 import json
 import os
 import time
@@ -21,13 +7,8 @@ from google.genai import types
 
 from config import GEMINI_MODEL
 
-# Choice: use the already-cropped (256x256) videos from gemini_review/.
-# These are the same videos Gemini saw during calibration.
 FACTORY001_VIDEO = "gemini_review/factory_001_worker_001_0076.mp4"
 FACTORY002_VIDEO = "gemini_review/factory_002_worker_001_0075.mp4"
-
-# Choice: 2h TTL — enough to label a full batch in one sitting.
-# Alternative: 48h for multi-day, but storage costs scale with TTL.
 CACHE_TTL = "7200s"
 
 SYSTEM_INSTRUCTION = (
@@ -54,7 +35,6 @@ SYSTEM_INSTRUCTION = (
     "segments are labeled 'not good for collecting'. No gaps, no overlaps."
 )
 
-# Factory001 corrected labels (ground truth from manual review)
 FACTORY001_LABELS = [
     {"start_time": "00:00", "end_time": "00:04", "label": "not good for collecting"},
     {"segment_id": 1, "start_time": "00:05", "end_time": "00:08", "label": "Golden Standard",
@@ -85,7 +65,6 @@ FACTORY001_LABELS = [
     {"start_time": "02:30", "end_time": "02:59", "label": "not good for collecting"},
 ]
 
-# Factory002 labels (Gemini got these right without correction)
 FACTORY002_LABELS = [
     {"start_time": "00:00", "end_time": "00:02", "label": "not good for collecting",
      "reason": "Segment starts mid-action; camera moves away from primary workspace."},
@@ -118,17 +97,6 @@ def upload_and_wait(client, path):
 
 
 def build_conversation(f001_file, f002_file):
-    """Build multi-turn calibration conversation with full videos.
-
-    Matches the original Gemini chat flow:
-    1. Upload full factory001 video, ask for labels
-    2. Gemini gives labels (simulated as too-loose first attempt)
-    3. User corrects with right labels, points to 02:22-02:29
-    4. Gemini acknowledges and articulates hard-fail criteria
-    5. Upload full factory002 video, provide task description + golden template
-    6. Gemini produces correct labels without correction
-    """
-
     f001_part = types.Part(
         file_data=types.FileData(file_uri=f001_file.uri, mime_type=f001_file.mime_type),
     )
@@ -137,7 +105,6 @@ def build_conversation(f001_file, f002_file):
     )
 
     contents = [
-        # Turn 1: User uploads full factory001 video and asks for labels
         types.Content(
             role="user",
             parts=[
@@ -152,8 +119,6 @@ def build_conversation(f001_file, f002_file):
                 ),
             ],
         ),
-
-        # Turn 2: Model gives a too-loose first attempt
         types.Content(
             role="model",
             parts=[types.Part(text=
@@ -172,8 +137,6 @@ def build_conversation(f001_file, f002_file):
                 ], indent=2)
             )],
         ),
-
-        # Turn 3: User corrects — points to 02:22-02:29 as master golden segment
         types.Content(
             role="user",
             parts=[types.Part(text=
@@ -187,8 +150,6 @@ def build_conversation(f001_file, f002_file):
                 + json.dumps(FACTORY001_LABELS, indent=2)
             )],
         ),
-
-        # Turn 4: Model acknowledges correction and articulates hard-fail criteria
         types.Content(
             role="model",
             parts=[types.Part(text=
@@ -209,8 +170,6 @@ def build_conversation(f001_file, f002_file):
                 "I will apply these strict criteria to all future videos."
             )],
         ),
-
-        # Turn 5: User uploads full factory002 video with task description
         types.Content(
             role="user",
             parts=[
@@ -227,8 +186,6 @@ def build_conversation(f001_file, f002_file):
                 ),
             ],
         ),
-
-        # Turn 6: Model produces correct factory002 labels (no correction needed)
         types.Content(
             role="model",
             parts=[types.Part(text=json.dumps(FACTORY002_LABELS, indent=2))],
@@ -241,17 +198,14 @@ def build_conversation(f001_file, f002_file):
 def create_cache():
     client = genai.Client()
 
-    # Upload both full calibration videos
     print("Uploading factory001 video...")
     f001_file = upload_and_wait(client, FACTORY001_VIDEO)
 
     print("Uploading factory002 video...")
     f002_file = upload_and_wait(client, FACTORY002_VIDEO)
 
-    # Build conversation referencing both videos
     contents = build_conversation(f001_file, f002_file)
 
-    # Create the explicit cache
     print("Creating cache...")
     cache = client.caches.create(
         model=GEMINI_MODEL,
@@ -268,11 +222,9 @@ def create_cache():
     print(f"Usage: {cache.usage_metadata}")
     print(f"Expires: {cache.expire_time}")
 
-    # Save cache name
     with open("cache_name.txt", "w") as f:
         f.write(cache.name)
 
-    # Clean up uploaded files — cache retains its own copies
     client.files.delete(name=f001_file.name)
     client.files.delete(name=f002_file.name)
 

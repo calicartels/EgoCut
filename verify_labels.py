@@ -1,17 +1,3 @@
-"""
-Overlay label timestamps on a video for visual verification.
-
-Draws a colored bar + text at the top of the video:
-  Green  = "Golden Standard"
-  Red    = "not good for collecting"
-
-Usage:
-  python verify_labels.py labels/factory_001_worker_001_0076.json \
-    gemini_review/factory_001_worker_001_0076.mp4
-
-Outputs: verify_output/factory_001_worker_001_0076_overlay.mp4
-"""
-
 import json
 import os
 import subprocess
@@ -24,7 +10,6 @@ def parse_time(t):
 
 
 def build_filter(segments):
-    """Build ffmpeg filter chain. Uses drawbox for color bar + drawtext for label."""
     parts = []
     for seg in segments:
         start = parse_time(seg["start_time"])
@@ -34,8 +19,6 @@ def build_filter(segments):
         color = "0x00AA00" if is_golden else "0xAA0000"
         seg_id = seg.get("segment_id")
 
-        # Choice: avoid '#' in drawtext — ffmpeg interprets it as textfile.
-        # Use "GOLDEN 1" instead of "GOLDEN #1".
         if is_golden and seg_id:
             text = f"GOLDEN {seg_id}"
         elif is_golden:
@@ -46,15 +29,12 @@ def build_filter(segments):
         ts = f"{seg['start_time']}-{seg['end_time']}".replace(":", r"\:")
         enable = f"between(t\\,{start}\\,{end})"
 
-        # Background bar
         parts.append(
             f"drawbox=x=0:y=0:w=iw:h=32:color={color}@0.7:t=fill:enable='{enable}'"
         )
-        # Label text
         parts.append(
             f"drawtext=text='{text}':x=10:y=6:fontsize=18:fontcolor=white:enable='{enable}'"
         )
-        # Timestamp range
         parts.append(
             f"drawtext=text='{ts}':x=w-120:y=6:fontsize=18:fontcolor=white:enable='{enable}'"
         )

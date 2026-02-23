@@ -1,0 +1,275 @@
+[
+  {
+    "segment_id": 1,
+    "start_time": "00:00",
+    "end_time": "00:04",
+    "label": "Golden Standard",
+    "description": "Primary Golden Clip: Perfect execution of the pick-insert-route-release cycle with clear hand positioning and no occlusion."
+  },
+  {
+    "segment_id": 2,
+    "start_time": "00:05",
+    "end_time": "00:07",
+    "label": "Golden Standard",
+    "confidence_score": 0.95,
+    "description": "Rapid repetition; high-speed insertion of the battery with clear visibility of wire routing."
+  },
+  {
+    "segment_id": 3,
+    "start_time": "00:08",
+    "end_time": "00:10",
+    "label": "Golden Standard",
+    "confidence_score": 0.92,
+    "description": "Clean cycle; centered framing showing the firm press of the battery into the white casing."
+  },
+  {
+    "segment_id": 4,
+    "start_time": "00:11",
+    "end_time": "00:13",
+    "label": "Golden Standard",
+    "confidence_score": 0.94,
+    "description": "Consistent assembly speed; zero occlusion during the component mating phase."
+  },
+  {
+    "segment_id": 5,
+    "start_time": "00:14",
+    "end_time": "00:15",
+    "label": "Golden Standard",
+    "confidence_score": 0.90,
+    "description": "Standard repetition; efficient release of the unit onto the green conveyor belt."
+  },
+  {
+    "segment_id": 6,
+    "start_time": "00:16",
+    "end_time": "00:18",
+    "label": "Golden Standard",
+    "confidence_score": 0.93,
+    "description": "Clear tactile press visible as the battery is seated into the casing slot."
+  },
+  {
+    "segment_id": 7,
+    "start_time": "00:19",
+    "end_time": "00:20",
+    "label": "Golden Standard",
+    "confidence_score": 0.89,
+    "description": "Quick cycle; maintains the same bimanual manipulation flow as the golden sample."
+  },
+  {
+    "start_time": "00:21",
+    "end_time": "00:39",
+    "label": "not good for collecting",
+    "reason": "Camera instability and massive occlusion: the worker moves boxes and shifts their position, obscuring the workstation."
+  },
+  {
+    "segment_id": 8,
+    "start_time": "00:40",
+    "end_time": "00:43",
+    "label": "Golden Standard",
+    "confidence_score": 0.91,
+    "description": "Resumed steady cycle; optimal lighting on the white connector and red/black wires."
+  },
+  {
+    "segment_id": 9,
+    "start_time": "00:47",
+    "end_time": "00:49",
+    "label": "Golden Standard",
+    "confidence_score": 0.94,
+    "description": "Textbook execution; clear contrast between the blue battery and the white casing housing."
+  },
+  {
+    "segment_id": 10,
+    "start_time": "00:50",
+    "end_time": "00:52",
+    "label": "Golden Standard",
+    "confidence_score": 0.92,
+    "description": "Stable repetition; focused gaze and steady egocentric perspective of the assembly."
+  },
+  {
+    "start_time": "00:53",
+    "end_time": "00:54",
+    "label": "not good for collecting",
+    "reason": "Brief pause: worker readjusts their grip on the battery supply bin."
+  },
+  {
+    "segment_id": 11,
+    "start_time": "00:55",
+    "end_time": "00:57",
+    "label": "Golden Standard",
+    "confidence_score": 0.95,
+    "description": "Full acquisition-to-release cycle within the central work zone."
+  },
+  {
+    "segment_id": 12,
+    "start_time": "00:58",
+    "end_time": "01:00",
+    "label": "Golden Standard",
+    "confidence_score": 0.93,
+    "description": "Symmetrical hand positioning; perfectly centered component manipulation."
+  },
+  {
+    "segment_id": 13,
+    "start_time": "01:02",
+    "end_time": "01:04",
+    "label": "Golden Standard",
+    "confidence_score": 0.90,
+    "description": "Consistent repetition; clear view of the battery seating process."
+  },
+  {
+    "segment_id": 14,
+    "start_time": "01:05",
+    "end_time": "01:07",
+    "label": "Golden Standard",
+    "confidence_score": 0.92,
+    "description": "High-efficiency repetition following the established golden template."
+  },
+  {
+    "segment_id": 15,
+    "start_time": "01:09",
+    "end_time": "01:11",
+    "label": "Golden Standard",
+    "confidence_score": 0.94,
+    "description": "Clean mating of internal components with clear wire management."
+  },
+  {
+    "segment_id": 16,
+    "start_time": "01:12",
+    "end_time": "01:14",
+    "label": "Golden Standard",
+    "confidence_score": 0.91,
+    "description": "Optimal viewing angle of the connector insertion slot."
+  },
+  {
+    "segment_id": 17,
+    "start_time": "01:15",
+    "end_time": "01:17",
+    "label": "Golden Standard",
+    "confidence_score": 0.93,
+    "description": "Standard cycle; worker maintains high throughput with precise hand movements."
+  },
+  {
+    "segment_id": 18,
+    "start_time": "01:20",
+    "end_time": "01:22",
+    "label": "Golden Standard",
+    "confidence_score": 0.92,
+    "description": "Focused repetition; minimal peripheral distractions during assembly."
+  },
+  {
+    "segment_id": 19,
+    "start_time": "01:24",
+    "end_time": "01:27",
+    "label": "Golden Standard",
+    "confidence_score": 0.95,
+    "description": "Master Segment: clear, uninterrupted cycle showing full tactile feedback of the battery press."
+  },
+  {
+    "segment_id": 20,
+    "start_time": "01:29",
+    "end_time": "01:31",
+    "label": "Golden Standard",
+    "confidence_score": 0.91,
+    "description": "Clean repetition; effective use of the white casing as a guide for the battery cell."
+  },
+  {
+    "segment_id": 21,
+    "start_time": "01:32",
+    "end_time": "01:34",
+    "label": "Golden Standard",
+    "confidence_score": 0.93,
+    "description": "Efficient pick-and-place with clear visibility of the component alignment."
+  },
+  {
+    "segment_id": 22,
+    "start_time": "01:35",
+    "end_time": "01:37",
+    "label": "Golden Standard",
+    "confidence_score": 0.94,
+    "description": "High-speed assembly cycle; steady hand movements and clear release."
+  },
+  {
+    "segment_id": 23,
+    "start_time": "01:38",
+    "end_time": "01:40",
+    "label": "Golden Standard",
+    "confidence_score": 0.92,
+    "description": "Consistent execution of wire routing and battery seating."
+  },
+  {
+    "segment_id": 24,
+    "start_time": "01:41",
+    "end_time": "01:43",
+    "label": "Golden Standard",
+    "confidence_score": 0.88,
+    "description": "Slight camera shake but the task remains centered and clearly visible."
+  },
+  {
+    "segment_id": 25,
+    "start_time": "01:45",
+    "end_time": "01:47",
+    "label": "Golden Standard",
+    "confidence_score": 0.95,
+    "description": "Perfectly centered manipulation of the blue battery into the casing."
+  },
+  {
+    "segment_id": 26,
+    "start_time": "01:49",
+    "end_time": "01:51",
+    "label": "Golden Standard",
+    "confidence_score": 0.93,
+    "description": "Stable repetition; no occlusion from the assembly line or surrounding tools."
+  },
+  {
+    "segment_id": 27,
+    "start_time": "01:52",
+    "end_time": "01:54",
+    "label": "Golden Standard",
+    "confidence_score": 0.91,
+    "description": "Standard assembly flow; maintains high level of visibility for all internal parts."
+  },
+  {
+    "segment_id": 28,
+    "start_time": "01:55",
+    "end_time": "01:57",
+    "label": "Golden Standard",
+    "confidence_score": 0.94,
+    "description": "Textbook pick-insert-release cycle with optimal lighting."
+  },
+  {
+    "segment_id": 29,
+    "start_time": "01:58",
+    "end_time": "02:00",
+    "label": "Golden Standard",
+    "confidence_score": 0.92,
+    "description": "Focused repetition; consistent hand positioning relative to the conveyor belt."
+  },
+  {
+    "segment_id": 30,
+    "start_time": "02:01",
+    "end_time": "02:03",
+    "label": "Golden Standard",
+    "confidence_score": 0.93,
+    "description": "Efficient repetition; clear contrast between the white connector and the blue cell."
+  },
+  {
+    "segment_id": 31,
+    "start_time": "02:04",
+    "end_time": "02:06",
+    "label": "Golden Standard",
+    "confidence_score": 0.95,
+    "description": "Highly focused execution; zero movement in camera framing during insertion."
+  },
+  {
+    "segment_id": 32,
+    "start_time": "02:08",
+    "end_time": "02:10",
+    "label": "Golden Standard",
+    "confidence_score": 0.91,
+    "description": "Final centered repetition showing the full assembly sequence."
+  },
+  {
+    "start_time": "02:11",
+    "end_time": "02:59",
+    "label": "not good for collecting",
+    "reason": "Terminal occlusion: the worker moves large boxes to the side, completely blocking the view of the workbench."
+  }
+]
