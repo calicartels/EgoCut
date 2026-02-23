@@ -5,12 +5,14 @@ Each clip: 16 frames at 2fps = 8 seconds of video.
 Label: 1 (golden) if >50% of the clip's seconds are Golden Standard, else 0.
 
 Usage:
-  python make_clips.py
+  python make_clips.py                   # non-overlapping (stride=8s)
+  python make_clips.py --overlap 0.5     # 50% overlap (stride=4s)
 
 Reads: egocentric/{train,val,test}/ and labels/
 Writes: clips/{train,val,test}_manifest.json
 """
 
+import argparse
 import glob
 import json
 import os
@@ -20,12 +22,6 @@ import numpy as np
 from config import LABELS_DIR, TASKS, CLIP_DURATION_S
 
 CLIPS_DIR = "clips"
-
-# Choice: non-overlapping clips (stride = clip duration = 8s).
-# Alternative: 50% overlap (stride=4s) doubles training data but
-# introduces correlation between adjacent clips. Start simple,
-# can add overlap later if training data is insufficient.
-STRIDE_S = int(CLIP_DURATION_S)  # 8 seconds
 
 
 def parse_time(t):
@@ -42,7 +38,6 @@ def load_labels(label_path):
         max_t = max(max_t, parse_time(seg["end_time"]))
     duration_s = max_t + 1
 
-    # Per-second array: 1 = golden, 0 = not good
     labels = np.zeros(duration_s, dtype=np.int32)
     for seg in segments:
         start = parse_time(seg["start_time"])
@@ -54,18 +49,16 @@ def load_labels(label_path):
 
 
 def find_label_file(factory_key, video_id):
-    # Subfolder (API-labeled)
     p = os.path.join(LABELS_DIR, factory_key, f"{video_id}.json")
     if os.path.exists(p):
         return p
-    # Flat (calibration labels)
     p = os.path.join(LABELS_DIR, f"{video_id}.json")
     if os.path.exists(p):
         return p
     return None
 
 
-def make_clips_for_video(video_path, split):
+def make_clips_for_video(video_path, split, stride_s):
     basename = os.path.splitext(os.path.basename(video_path))[0]
     parts = basename.split("_")
     factory_key = f"factory{parts[1]}"
@@ -86,9 +79,6 @@ def make_clips_for_video(video_path, split):
 
         segment = per_second[clip_start:clip_end]
         golden_ratio = segment.mean()
-
-        # Choice: threshold at 0.5 (majority golden = golden clip).
-        # Alternative: stricter threshold (0.75) for higher precision.
         label = 1 if golden_ratio > 0.5 else 0
 
         clips.append({
@@ -101,18 +91,18 @@ def make_clips_for_video(video_path, split):
             "golden_ratio": float(golden_ratio),
         })
 
-        clip_start += STRIDE_S
+        clip_start += stride_s
 
     return clips
 
 
-def process_split(split):
+def process_split(split, stride_s):
     pattern = os.path.join("egocentric", split, "*", "*.mp4")
     videos = sorted(glob.glob(pattern))
 
     all_clips = []
     for video_path in videos:
-        clips = make_clips_for_video(video_path, split)
+        clips = make_clips_for_video(video_path, split, stride_s)
         all_clips.extend(clips)
 
     manifest_path = os.path.join(CLIPS_DIR, f"{split}_manifest.json")
@@ -122,10 +112,22 @@ def process_split(split):
 
     n_golden = sum(1 for c in all_clips if c["label"] == 1)
     n_total = len(all_clips)
-    print(f"{split}: {n_total} clips ({n_golden} golden, {n_total - n_golden} not-good)")
+    print(f"{split}: {n_total} clips ({n_golden} golden, {n_total - n_golden} not-good), stride={stride_s}s")
 
     return all_clips
 
 
+parser = argparse.ArgumentParser()
+parser.add_argument("--overlap", type=float, default=0.0,
+                    help="Overlap fraction (0.0 = no overlap, 0.5 = 50%% overlap)")
+args = parser.parse_args()
+
+# Choice: 50% overlap for train (doubles data), no overlap for val/test (no data leakage).
+# Alternative: overlap everywhere (inflates val/test metrics with correlated clips).
+stride_s = int(CLIP_DURATION_S * (1 - args.overlap))
+stride_s = max(1, stride_s)
+
 for split in ["train", "val", "test"]:
-    process_split(split)
+    # Only use overlap for training data
+    s = stride_s if split == "train" else int(CLIP_DURATION_S)
+    process_split(split, s)

@@ -1,20 +1,19 @@
 """
-Train an attentive probe on frozen VJEPA2 features for golden/not-good classification.
+Train classifiers on frozen VJEPA2 features for golden/not-good classification.
 
-Architecture (from the V-JEPA 2 paper):
-  - 4 transformer blocks on temporal features
-  - Last block uses cross-attention with a learnable query token
-  - Query output → LayerNorm → Linear → 2-class prediction
+Two stages:
+  Stage 1: Logistic regression on mean-pooled features (baseline sanity check).
+  Stage 2: Attentive probe (only if stage 1 shows the features separate).
 
 Usage:
   python train.py
 
 Reads: embeddings/{train,val,test}.pt, clips/{train,val,test}_manifest.json
 Writes:
-  - model/probe.pt         (trained probe weights)
-  - predictions/val/       (JSON per video, same format as Gemini labels)
-  - predictions/test/      (JSON per video, same format as Gemini labels)
-  - predictions/metrics.json (val + test metrics + per-factory breakdown)
+  - model/probe.pt              (trained probe weights)
+  - predictions/val/            (JSON per video, Gemini label format)
+  - predictions/test/           (JSON per video, Gemini label format)
+  - predictions/metrics.json    (val + test metrics + per-factory breakdown)
 """
 
 import json
@@ -25,48 +24,42 @@ import numpy as np
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
+from sklearn.linear_model import LogisticRegression
+from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import (
     accuracy_score, precision_score, recall_score, f1_score,
     classification_report,
 )
 
-from config import VJEPA2_EMBED_DIM, VJEPA2_T_TOKENS
+from config import VJEPA2_EMBED_DIM, VJEPA2_T_TOKENS, VJEPA2_MODEL
 
 EMB_DIR = "embeddings"
 PRED_DIR = "predictions"
 MODEL_DIR = "model"
 
 # ── Attentive Probe Architecture ─────────────────────────────────────
-# Matches the V-JEPA 2 paper: "4-layer attentive probe composed of four
-# transformer blocks, the last of which replaces standard self-attention
-# with a cross-attention layer using a learnable query token."
-#
-# Choice: project 1408→384 before the transformer blocks.
-# Reason: we have ~500 training clips; a full 1408-dim, 4-layer probe
-# has ~80M params and will overfit badly. Projecting to 384 gives ~5M
-# params, better suited to our data size.
-# Alternative: keep full 1408-dim (as in the paper's SSv2 eval with 170K
-# training videos). Switch to this if we get more data.
-
-PROBE_DIM = 384
-PROBE_HEADS = 6
-PROBE_DEPTH = 4
-PROBE_DROPOUT = 0.2
+# Choice: project 1408→128, depth=2 (1 self-attn + 1 cross-attn).
+# Reason: ~591 training clips (or ~1100 with overlap). A 4-layer 384-dim
+# probe had 7.64M params and collapsed. This has ~0.5M params.
+# Alternative: depth=4, dim=384 as in the paper (designed for 170K SSv2
+# training videos). We can scale up if we get more data.
+PROBE_DIM = 128
+PROBE_HEADS = 4
+PROBE_DEPTH = 2  # 1 self-attn block + 1 cross-attn block
+PROBE_DROPOUT = 0.4
 NUM_CLASSES = 2
 
 # ── Training hyperparameters ─────────────────────────────────────────
-# Choice: AdamW with cosine schedule, 100 epochs, early stopping on val F1.
-# Alternative: SGD with momentum (more stable but slower convergence).
-LR = 1e-3
-WEIGHT_DECAY = 0.05
-EPOCHS = 100
-BATCH_SIZE = 32
-PATIENCE = 15  # early stopping patience
+LR = 3e-4
+WEIGHT_DECAY = 0.1
+EPOCHS = 200
+BATCH_SIZE = 64
+PATIENCE = 30
 
+
+# ── Model definition ─────────────────────────────────────────────────
 
 class CrossAttentionBlock(nn.Module):
-    """Final probe block: cross-attention from query token to features."""
-
     def __init__(self, dim, n_heads, dropout=0.1):
         super().__init__()
         self.norm_q = nn.LayerNorm(dim)
@@ -84,94 +77,62 @@ class CrossAttentionBlock(nn.Module):
         )
 
     def forward(self, query, kv):
-        # Cross-attention: query attends to kv
         q = self.norm_q(query)
-        kv_normed = self.norm_kv(kv)
-        attn_out, _ = self.cross_attn(q, kv_normed, kv_normed)
+        kv_n = self.norm_kv(kv)
+        attn_out, _ = self.cross_attn(q, kv_n, kv_n)
         query = query + attn_out
         query = query + self.ffn(self.norm_ff(query))
         return query
 
 
 class AttentiveProbe(nn.Module):
-    """4-layer attentive probe following the V-JEPA 2 paper.
+    """Lightweight attentive probe for small datasets.
 
-    Blocks 1-3: standard self-attention transformer encoder layers.
-    Block 4: cross-attention from a learnable query token to features.
-    Query output → LayerNorm → Linear → class logits.
+    Architecture: projection → (depth-1) self-attn blocks → 1 cross-attn
+    block with learnable query → LayerNorm → Linear → logits.
     """
 
     def __init__(
-        self,
-        input_dim=VJEPA2_EMBED_DIM,
-        hidden_dim=PROBE_DIM,
-        n_heads=PROBE_HEADS,
-        depth=PROBE_DEPTH,
-        n_classes=NUM_CLASSES,
-        dropout=PROBE_DROPOUT,
+        self, input_dim=VJEPA2_EMBED_DIM, hidden_dim=PROBE_DIM,
+        n_heads=PROBE_HEADS, depth=PROBE_DEPTH,
+        n_classes=NUM_CLASSES, dropout=PROBE_DROPOUT,
     ):
         super().__init__()
-
-        # Project from encoder dim to probe dim
-        self.proj = nn.Linear(input_dim, hidden_dim)
-
-        # First (depth-1) blocks: self-attention
-        self_attn_layer = nn.TransformerEncoderLayer(
-            d_model=hidden_dim,
-            nhead=n_heads,
-            dim_feedforward=hidden_dim * 4,
-            dropout=dropout,
-            activation="gelu",
-            batch_first=True,
-            norm_first=True,  # pre-norm for stability
-        )
-        self.self_attn_blocks = nn.TransformerEncoder(
-            self_attn_layer, num_layers=depth - 1,
+        self.proj = nn.Sequential(
+            nn.Linear(input_dim, hidden_dim),
+            nn.LayerNorm(hidden_dim),
+            nn.Dropout(dropout),
         )
 
-        # Last block: cross-attention with learnable query
+        if depth > 1:
+            layer = nn.TransformerEncoderLayer(
+                d_model=hidden_dim, nhead=n_heads,
+                dim_feedforward=hidden_dim * 4, dropout=dropout,
+                activation="gelu", batch_first=True, norm_first=True,
+            )
+            self.self_attn = nn.TransformerEncoder(layer, num_layers=depth - 1)
+        else:
+            self.self_attn = nn.Identity()
+
         self.query_token = nn.Parameter(torch.randn(1, 1, hidden_dim) * 0.02)
         self.cross_attn_block = CrossAttentionBlock(hidden_dim, n_heads, dropout)
 
-        # Classification head
         self.norm = nn.LayerNorm(hidden_dim)
         self.head = nn.Linear(hidden_dim, n_classes)
 
-        self._init_weights()
-
-    def _init_weights(self):
-        for m in self.modules():
-            if isinstance(m, nn.Linear):
-                nn.init.trunc_normal_(m.weight, std=0.02)
-                if m.bias is not None:
-                    nn.init.zeros_(m.bias)
-
     def forward(self, x):
-        """
-        x: (B, T, input_dim) — temporal features from VJEPA2 encoder
-        returns: (B, n_classes) — logits
-        """
-        x = self.proj(x)  # (B, T, hidden_dim)
-
-        # Self-attention blocks
-        x = self.self_attn_blocks(x)  # (B, T, hidden_dim)
-
-        # Cross-attention: query token attends to temporal features
+        x = self.proj(x)
+        x = self.self_attn(x)
         B = x.shape[0]
-        query = self.query_token.expand(B, -1, -1)  # (B, 1, hidden_dim)
-        query = self.cross_attn_block(query, x)      # (B, 1, hidden_dim)
-
-        # Classify from query output
-        cls_out = query.squeeze(1)        # (B, hidden_dim)
-        cls_out = self.norm(cls_out)
-        return self.head(cls_out)         # (B, n_classes)
+        query = self.query_token.expand(B, -1, -1)
+        query = self.cross_attn_block(query, x)
+        return self.head(self.norm(query.squeeze(1)))
 
 
-# ── Data loading ─────────────────────────────────────────────────────
+# ── Utilities ────────────────────────────────────────────────────────
 
 def load_split(split):
-    path = os.path.join(EMB_DIR, f"{split}.pt")
-    data = torch.load(path, weights_only=True)
+    data = torch.load(os.path.join(EMB_DIR, f"{split}.pt"), weights_only=True)
     return data["features"], data["labels"]
 
 
@@ -180,10 +141,7 @@ def load_manifest(split):
         return json.load(f)
 
 
-# ── Prediction → JSON conversion ─────────────────────────────────────
-
 def clips_to_label_json(clips, predictions):
-    """Convert clip-level predictions back to per-second Gemini-format JSON."""
     by_video = defaultdict(list)
     for clip, pred in zip(clips, predictions):
         by_video[clip["video_id"]].append({**clip, "pred": int(pred)})
@@ -191,7 +149,6 @@ def clips_to_label_json(clips, predictions):
     results = {}
     for video_id, video_clips in by_video.items():
         video_clips.sort(key=lambda c: c["clip_start_s"])
-
         max_t = max(c["clip_end_s"] for c in video_clips)
         per_second = np.zeros(max_t, dtype=np.int32)
         for c in video_clips:
@@ -207,31 +164,22 @@ def clips_to_label_json(clips, predictions):
             while i < len(per_second) and per_second[i] == label:
                 i += 1
             end = i - 1
-
             start_str = f"{start // 60:02d}:{start % 60:02d}"
             end_str = f"{end // 60:02d}:{end % 60:02d}"
-
             if label == 1:
                 segment_id += 1
                 segments.append({
                     "segment_id": segment_id,
-                    "start_time": start_str,
-                    "end_time": end_str,
+                    "start_time": start_str, "end_time": end_str,
                     "label": "Golden Standard",
                     "description": "Predicted by VJEPA2 attentive probe.",
                 })
             else:
                 segments.append({
-                    "start_time": start_str,
-                    "end_time": end_str,
+                    "start_time": start_str, "end_time": end_str,
                     "label": "not good for collecting",
                 })
-
-        results[video_id] = {
-            "factory": video_clips[0]["factory"],
-            "segments": segments,
-        }
-
+        results[video_id] = {"factory": video_clips[0]["factory"], "segments": segments}
     return results
 
 
@@ -248,12 +196,99 @@ def compute_metrics(y_true, y_pred, name):
     }
 
 
-# ── Training loop ────────────────────────────────────────────────────
+def per_factory_eval(clips, y_true, y_pred):
+    results = []
+    factories = sorted(set(c["factory"] for c in clips))
+    for factory in factories:
+        mask = [i for i, c in enumerate(clips) if c["factory"] == factory]
+        if not mask:
+            continue
+        yt = y_true[mask]
+        yp = y_pred[mask]
+        acc = accuracy_score(yt, yp)
+        f1 = f1_score(yt, yp, zero_division=0)
+        print(f"  {factory}: acc={acc:.3f}, f1={f1:.3f} (n={len(mask)}, golden={yt.sum()})")
+        results.append({"factory": factory, "accuracy": float(acc), "f1": float(f1),
+                        "n_clips": len(mask), "n_golden": int(yt.sum())})
+    return results
 
-def train():
+
+# ── Stage 1: Logistic Regression ─────────────────────────────────────
+
+def stage1_logreg():
+    """Baseline: mean-pool temporal features → logistic regression.
+
+    This checks whether the VJEPA2 features actually separate golden from not-good.
+    If this fails, the features don't encode the distinction and we need a different approach.
+    """
+    print("=" * 60)
+    print("STAGE 1: Logistic Regression Baseline")
+    print("=" * 60)
+
+    X_train, y_train = load_split("train")
+    X_val, y_val = load_split("val")
+    X_test, y_test = load_split("test")
+
+    # Mean pool temporal dim: (N, 8, 1408) → (N, 1408)
+    X_train_flat = X_train.mean(dim=1).numpy()
+    X_val_flat = X_val.mean(dim=1).numpy()
+    X_test_flat = X_test.mean(dim=1).numpy()
+    y_train_np = y_train.numpy()
+    y_val_np = y_val.numpy()
+    y_test_np = y_test.numpy()
+
+    scaler = StandardScaler()
+    X_train_s = scaler.fit_transform(X_train_flat)
+    X_val_s = scaler.transform(X_val_flat)
+    X_test_s = scaler.transform(X_test_flat)
+
+    best_f1 = 0
+    best_C = 1.0
+    print("\nTuning C on val:")
+    for C in [0.001, 0.01, 0.1, 1.0, 10.0, 100.0]:
+        clf = LogisticRegression(C=C, max_iter=2000, solver="lbfgs")
+        clf.fit(X_train_s, y_train_np)
+        yp = clf.predict(X_val_s)
+        f1 = f1_score(y_val_np, yp, zero_division=0)
+        acc = accuracy_score(y_val_np, yp)
+        prec = precision_score(y_val_np, yp, zero_division=0)
+        rec = recall_score(y_val_np, yp, zero_division=0)
+        print(f"  C={C:>6}: acc={acc:.3f}, prec={prec:.3f}, rec={rec:.3f}, f1={f1:.3f}")
+        if f1 > best_f1:
+            best_f1 = f1
+            best_C = C
+
+    clf = LogisticRegression(C=best_C, max_iter=2000, solver="lbfgs")
+    clf.fit(X_train_s, y_train_np)
+
+    y_val_pred = clf.predict(X_val_s)
+    y_test_pred = clf.predict(X_test_s)
+
+    print(f"\nBest C={best_C}")
+    print(f"\nVal:")
+    print(classification_report(y_val_np, y_val_pred, target_names=["not-good", "golden"]))
+    print(f"Test:")
+    print(classification_report(y_test_np, y_test_pred, target_names=["not-good", "golden"]))
+
+    val_f1 = f1_score(y_val_np, y_val_pred)
+    test_f1 = f1_score(y_test_np, y_test_pred)
+
+    print(f"Stage 1 summary: val_f1={val_f1:.3f}, test_f1={test_f1:.3f}")
+    features_separate = val_f1 > 0.3
+    print(f"Features separate classes: {'YES' if features_separate else 'NO'}")
+
+    return features_separate
+
+
+# ── Stage 2: Attentive Probe ─────────────────────────────────────────
+
+def stage2_probe():
+    print("\n" + "=" * 60)
+    print("STAGE 2: Attentive Probe")
+    print("=" * 60)
+
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    # Load data
     X_train, y_train = load_split("train")
     X_val, y_val = load_split("val")
     X_test, y_test = load_split("test")
@@ -266,29 +301,24 @@ def train():
     print(f"Val:   {len(y_val)} clips ({y_val.sum()} golden, {len(y_val) - y_val.sum()} not-good)")
     print(f"Test:  {len(y_test)} clips ({y_test.sum()} golden, {len(y_test) - y_test.sum()} not-good)")
 
-    # DataLoaders
     train_ds = TensorDataset(X_train, y_train)
-    train_loader = DataLoader(train_ds, batch_size=BATCH_SIZE, shuffle=True, drop_last=False)
+    train_loader = DataLoader(train_ds, batch_size=BATCH_SIZE, shuffle=True)
 
-    # Model
     probe = AttentiveProbe().to(device)
     n_params = sum(p.numel() for p in probe.parameters() if p.requires_grad)
-    print(f"\nAttentive probe: {n_params / 1e6:.2f}M trainable params")
-    print(f"  dim={PROBE_DIM}, heads={PROBE_HEADS}, depth={PROBE_DEPTH}, dropout={PROBE_DROPOUT}")
+    print(f"\nProbe: {n_params / 1e3:.1f}K params (dim={PROBE_DIM}, heads={PROBE_HEADS}, "
+          f"depth={PROBE_DEPTH}, dropout={PROBE_DROPOUT})")
 
-    # Choice: class-weighted loss to handle imbalanced golden/not-good ratio.
-    # Alternative: no weighting (biases toward majority class).
+    # Class-weighted loss
     n_pos = y_train.sum().item()
     n_neg = len(y_train) - n_pos
     weight = torch.tensor([1.0, n_neg / max(n_pos, 1)], device=device)
     criterion = nn.CrossEntropyLoss(weight=weight)
     print(f"  class weights: not-good={weight[0]:.2f}, golden={weight[1]:.2f}")
 
-    # Optimizer + scheduler
     optimizer = torch.optim.AdamW(probe.parameters(), lr=LR, weight_decay=WEIGHT_DECAY)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=EPOCHS)
 
-    # Training loop with early stopping
     best_val_f1 = 0
     best_epoch = 0
     best_state = None
@@ -297,141 +327,114 @@ def train():
     X_test_d = X_test.to(device)
 
     for epoch in range(EPOCHS):
-        # Train
         probe.train()
         train_loss = 0
         train_correct = 0
         train_total = 0
 
-        for batch_x, batch_y in train_loader:
-            batch_x, batch_y = batch_x.to(device), batch_y.to(device)
-            logits = probe(batch_x)
-            loss = criterion(logits, batch_y)
-
+        for bx, by in train_loader:
+            bx, by = bx.to(device), by.to(device)
+            logits = probe(bx)
+            loss = criterion(logits, by)
             optimizer.zero_grad()
             loss.backward()
-
-            # Choice: gradient clipping at 1.0 for training stability.
-            # Alternative: no clipping (risk of exploding gradients with small batches).
             torch.nn.utils.clip_grad_norm_(probe.parameters(), 1.0)
             optimizer.step()
 
-            train_loss += loss.item() * batch_x.size(0)
-            train_correct += (logits.argmax(1) == batch_y).sum().item()
-            train_total += batch_x.size(0)
+            train_loss += loss.item() * bx.size(0)
+            train_correct += (logits.argmax(1) == by).sum().item()
+            train_total += bx.size(0)
 
         scheduler.step()
 
-        # Validate
         probe.eval()
         with torch.no_grad():
             val_logits = probe(X_val_d)
             val_preds = val_logits.argmax(1).cpu().numpy()
             val_f1 = f1_score(y_val.numpy(), val_preds, zero_division=0)
             val_acc = accuracy_score(y_val.numpy(), val_preds)
+            # Also check it's not degenerate (predicting all one class)
+            val_pred_pos = val_preds.sum()
+            val_pred_neg = len(val_preds) - val_pred_pos
 
         if (epoch + 1) % 10 == 0 or epoch == 0:
-            lr = scheduler.get_last_lr()[0]
             print(f"  epoch {epoch+1:3d}: loss={train_loss/train_total:.4f}, "
                   f"train_acc={train_correct/train_total:.3f}, "
-                  f"val_acc={val_acc:.3f}, val_f1={val_f1:.3f}, lr={lr:.2e}")
+                  f"val_acc={val_acc:.3f}, val_f1={val_f1:.3f}, "
+                  f"val_pred=[{val_pred_neg}neg/{val_pred_pos}pos]")
 
-        if val_f1 > best_val_f1:
+        # Only count as best if predicting both classes
+        if val_f1 > best_val_f1 and val_pred_pos > 0 and val_pred_neg > 0:
             best_val_f1 = val_f1
             best_epoch = epoch + 1
             best_state = {k: v.cpu().clone() for k, v in probe.state_dict().items()}
 
-        if epoch + 1 - best_epoch >= PATIENCE:
+        if epoch + 1 - best_epoch >= PATIENCE and best_state is not None:
             print(f"  Early stopping at epoch {epoch+1} (best was {best_epoch})")
             break
 
+    if best_state is None:
+        print("WARNING: Probe never predicted both classes. Using final state.")
+        best_state = {k: v.cpu().clone() for k, v in probe.state_dict().items()}
+        best_val_f1 = val_f1
+        best_epoch = epoch + 1
+
     print(f"\nBest val F1={best_val_f1:.3f} at epoch {best_epoch}")
 
-    # Load best model
     probe.load_state_dict(best_state)
     probe = probe.to(device).eval()
 
-    # ── Save model ──
+    # Save model
     os.makedirs(MODEL_DIR, exist_ok=True)
     torch.save({
         "state_dict": best_state,
         "config": {
-            "input_dim": VJEPA2_EMBED_DIM,
-            "hidden_dim": PROBE_DIM,
-            "n_heads": PROBE_HEADS,
-            "depth": PROBE_DEPTH,
-            "n_classes": NUM_CLASSES,
-            "dropout": PROBE_DROPOUT,
+            "input_dim": VJEPA2_EMBED_DIM, "hidden_dim": PROBE_DIM,
+            "n_heads": PROBE_HEADS, "depth": PROBE_DEPTH,
+            "n_classes": NUM_CLASSES, "dropout": PROBE_DROPOUT,
         },
-        "best_epoch": best_epoch,
-        "best_val_f1": best_val_f1,
+        "best_epoch": best_epoch, "best_val_f1": best_val_f1,
     }, os.path.join(MODEL_DIR, "probe.pt"))
     print(f"Model saved to {MODEL_DIR}/probe.pt")
 
-    # ── Evaluate ──
+    # Evaluate
     with torch.no_grad():
-        val_logits = probe(X_val_d)
-        test_logits = probe(X_test_d)
-
-    y_val_pred = val_logits.argmax(1).cpu().numpy()
-    y_test_pred = test_logits.argmax(1).cpu().numpy()
+        y_val_pred = probe(X_val_d).argmax(1).cpu().numpy()
+        y_test_pred = probe(X_test_d).argmax(1).cpu().numpy()
 
     y_val_np = y_val.numpy()
     y_test_np = y_test.numpy()
 
-    print(f"\n{'='*50}")
-    print(f"=== Val ===")
+    print(f"\n=== Val ===")
     print(classification_report(y_val_np, y_val_pred, target_names=["not-good", "golden"]))
 
     print(f"=== Test (worker_002 — cross-worker generalization) ===")
     print(classification_report(y_test_np, y_test_pred, target_names=["not-good", "golden"]))
 
-    # ── Per-factory test breakdown ──
     print("Per-factory test breakdown:")
-    per_factory_metrics = []
-    factories = sorted(set(c["factory"] for c in test_clips))
-    for factory in factories:
-        mask = [i for i, c in enumerate(test_clips) if c["factory"] == factory]
-        if not mask:
-            continue
-        y_true_f = y_test_np[mask]
-        y_pred_f = y_test_pred[mask]
-        acc = accuracy_score(y_true_f, y_pred_f)
-        f1 = f1_score(y_true_f, y_pred_f, zero_division=0)
-        print(f"  {factory}: acc={acc:.3f}, f1={f1:.3f} (n={len(mask)}, golden={y_true_f.sum()})")
-        per_factory_metrics.append({
-            "factory": factory, "accuracy": float(acc), "f1": float(f1),
-            "n_clips": len(mask), "n_golden": int(y_true_f.sum()),
-        })
+    pf_metrics = per_factory_eval(test_clips, y_test_np, y_test_pred)
 
-    # ── Save predictions as JSON (Gemini label format) ──
+    # Save predictions as JSON
     for split, clips, preds in [("val", val_clips, y_val_pred), ("test", test_clips, y_test_pred)]:
         label_jsons = clips_to_label_json(clips, preds)
         for video_id, data in label_jsons.items():
             out_dir = os.path.join(PRED_DIR, split, data["factory"])
             os.makedirs(out_dir, exist_ok=True)
-            out_path = os.path.join(out_dir, f"{video_id}.json")
-            with open(out_path, "w") as f:
+            with open(os.path.join(out_dir, f"{video_id}.json"), "w") as f:
                 json.dump(data["segments"], f, indent=2)
 
     print(f"\nPredictions saved to {PRED_DIR}/val/ and {PRED_DIR}/test/")
 
-    # ── Save metrics ──
+    # Save metrics
     metrics = {
         "model": VJEPA2_MODEL,
-        "probe": {
-            "dim": PROBE_DIM, "heads": PROBE_HEADS,
-            "depth": PROBE_DEPTH, "dropout": PROBE_DROPOUT,
-            "params": n_params,
-        },
-        "training": {
-            "best_epoch": best_epoch, "best_val_f1": best_val_f1,
-            "lr": LR, "weight_decay": WEIGHT_DECAY,
-            "batch_size": BATCH_SIZE,
-        },
+        "probe": {"dim": PROBE_DIM, "heads": PROBE_HEADS,
+                  "depth": PROBE_DEPTH, "dropout": PROBE_DROPOUT, "params": n_params},
+        "training": {"best_epoch": best_epoch, "best_val_f1": best_val_f1,
+                     "lr": LR, "weight_decay": WEIGHT_DECAY, "batch_size": BATCH_SIZE},
         "val": compute_metrics(y_val_np, y_val_pred, "val"),
         "test": compute_metrics(y_test_np, y_test_pred, "test"),
-        "per_factory_test": per_factory_metrics,
+        "per_factory_test": pf_metrics,
     }
     os.makedirs(PRED_DIR, exist_ok=True)
     with open(os.path.join(PRED_DIR, "metrics.json"), "w") as f:
@@ -443,4 +446,10 @@ def train():
     print(f"    egocentric/test/factory001/factory_001_worker_002_0000.mp4")
 
 
-train()
+# ── Run ──
+features_ok = stage1_logreg()
+if features_ok:
+    stage2_probe()
+else:
+    print("\nStage 1 failed — features don't separate classes.")
+    print("Consider: different pooling, unfreezing encoder layers, or more training data.")
