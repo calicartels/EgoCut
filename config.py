@@ -6,11 +6,11 @@ LABELS_DIR = "labels"
 CROPPED_DIR = "cropped"
 
 # ── Gemini ───────────────────────────────────────────────────────────
-# Choice: gemini-2.5-pro for best video understanding accuracy.
-# Alternative: gemini-2.5-flash is 10x cheaper but less reliable on
-# fine-grained temporal boundary detection in 180s videos.
+# Choice: gemini-3-flash-preview — same model used in the original
+# calibration chat that produced accurate labels.
+# Alternative: gemini-2.5-pro has stronger reasoning but wasn't the
+# model that learned the criteria in the original conversation.
 GEMINI_MODEL = "gemini-3-flash-preview"
-
 
 # ── Video preprocessing ──────────────────────────────────────────────
 # Choice: center-crop 456x256 → 256x256 with 20px top trim.
@@ -25,7 +25,7 @@ CROP_X = 100  # (456 - 256) / 2
 CROP_Y = 20   # top trim
 FFMPEG_VF = f"crop={CROP_W}:{CROP_H}:{CROP_X}:{CROP_Y},scale=256:256"
 
-# ── Sampling ─────────────────────────────────────────────────────────
+# ── Clip sampling ────────────────────────────────────────────────────
 # Choice: fixed 2fps for all tasks.
 # At 2fps, 16-frame VJEPA2 clip = 8 seconds.
 # Alternative: per-task FPS (1-4fps) but requires knowing task at deploy time.
@@ -33,7 +33,24 @@ SAMPLE_FPS = 2
 FRAMES_PER_CLIP = 16
 CLIP_DURATION_S = FRAMES_PER_CLIP / SAMPLE_FPS  # 8.0 seconds
 
-# ── Factories (10 active, factory010 dropped due to poor video quality) ──
+# ── VJEPA2 model ─────────────────────────────────────────────────────
+# Choice: ViT-g at 384px (vjepa2_vit_giant_384) — the largest and best
+# model. 1B params, 1408-dim embeddings. Needs ~12GB VRAM.
+# Alternative: ViT-L at 256px (vjepa2_vit_large) — 300M params, 1024-dim.
+# Fits in 2GB VRAM. Use this if GPU memory is limited.
+VJEPA2_MODEL = "vjepa2_vit_giant_384"
+VJEPA2_IMG_SIZE = 384
+VJEPA2_EMBED_DIM = 1408
+VJEPA2_TUBELET_SIZE = 2
+VJEPA2_PATCH_SIZE = 16
+
+# Derived: number of temporal and spatial tokens for feature extraction
+VJEPA2_T_TOKENS = FRAMES_PER_CLIP // VJEPA2_TUBELET_SIZE  # 16/2 = 8
+VJEPA2_H_TOKENS = VJEPA2_IMG_SIZE // VJEPA2_PATCH_SIZE     # 384/16 = 24
+VJEPA2_W_TOKENS = VJEPA2_H_TOKENS                          # 24
+VJEPA2_N_PATCHES = VJEPA2_T_TOKENS * VJEPA2_H_TOKENS * VJEPA2_W_TOKENS  # 4608
+
+# ── Factories (9 active, factory006 dropped, factory010 dropped) ─────
 TASKS = {
     "factory001": {
         "task_id": "electronics_assembly_01",
@@ -85,16 +102,7 @@ TASKS = {
         "avg_cycle_s": 11.5,
         "calibration_video": "factory_005_worker_001_0086",
     },
-    "factory006": {
-        "task_id": "manual_lever_press_01",
-        "description": (
-            "Manual lever press stamping. Left hand feeds pink cylindrical components, "
-            "right hand actuates heavy lever. Place component in die, pull lever to "
-            "stamp, remove processed item, slot into output tray."
-        ),
-        "avg_cycle_s": 4.4,
-        "calibration_video": "factory_006_worker_001_0078",
-    },
+    # factory006 dropped — video content inconsistent across clips
     "factory007": {
         "task_id": "motor_housing_assembly_01",
         "description": (
