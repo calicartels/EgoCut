@@ -45,10 +45,12 @@ def load_model():
     but would need to handle frame count mismatch.
     """
     print(f"Loading {VJEPA2_MODEL} via torch.hub...")
-    model = torch.hub.load(
+    result = torch.hub.load(
         "facebookresearch/vjepa2", VJEPA2_MODEL,
         trust_repo=True,
     )
+    # torch.hub returns (encoder, predictor) tuple — we only need the encoder
+    model = result[0] if isinstance(result, tuple) else result
     model = model.cuda().eval()
     print(f"  embed_dim={model.embed_dim}, params={sum(p.numel() for p in model.parameters()) / 1e6:.0f}M")
     return model
